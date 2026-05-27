@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "simplicity",
+  "version": "1.1.0",
+  "description": "Два прохода на простоту: simplicity-spec (ТЗ / архитектура / инфраструктура) и simplicity-code (код). Ловят переусложнение СУТИ решения до выдачи результата.",
+  "author": {
+    "name": "SVS696",
+    "url": "https://github.com/SVS696"
+  },
+  "homepage": "https://github.com/SVS696/simplicity-skills",
+  "repository": "https://github.com/SVS696/simplicity-skills",
+  "license": "MIT",
+  "keywords": ["simplicity", "overengineering", "architecture", "code-review", "refactoring"]
+}
