@@ -147,6 +147,19 @@ They cover the gap those leave: **the complexity of the solution itself.** Run t
 
 ## Install
 
+### Via the marketplace (recommended)
+
+```text
+/plugin marketplace add SVS696/svs-skills
+/plugin install simplicity@svs
+```
+
+Installs both skills as the **`simplicity`** plugin — invoke as
+`/simplicity:simplicity-spec` and `/simplicity:simplicity-code`, or let them
+auto-trigger. Keep them current with `/plugin update simplicity@svs`.
+
+### Manually
+
 Clone and drop the skills into your Claude Code skills directory:
 
 ```bash
