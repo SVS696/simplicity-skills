@@ -31,8 +31,20 @@ These skills add the missing layer: a reviewer that flags complexity in the *sub
 
 - **Dual mechanism** — a *generation guardrail* (stops the drift while writing) **and** a *draft linter* (catches what slipped through anyway).
 - **Auto + always-show** — runs automatically before any non-trivial spec/code, and **always** prints the result: a `Simplicity pass` table when it finds something, or a single line when it's clean. The point is that over-engineering can't slip past a quick read.
-- **5-step pass** — (1) fix the minimal core → (2) start from the simplest variant → (3) run the smell list → (4) check every complication against a justification trigger → (5) **rewrite the solution already simplified** (diagnosis without a rewrite just leaves you the bloated draft).
+- **Full pass** — understand the real flow → climb the solution ladder → run
+  the smell list → check every complication against a current trigger →
+  **rewrite the solution already simplified** → leave the minimum applicable
+  verification (diagnosis without a rewrite just leaves you the bloated draft).
 - **Forced decision per element** — `KEEP` · `SIMPLIFY` · `REMOVE` · `DEFER` · `ASK`.
+- **Ordered solution ladder** — understand the full flow first, then stop at the
+  first level that works: do nothing → reuse the current product/codebase →
+  standard library → native platform → installed mechanism → direct local
+  solution → minimal new mechanism.
+- **Protected floor** — simplification never removes confirmed business meaning,
+  trust-boundary validation, data-loss protection, security, accessibility,
+  required compliance, or evidence-backed extensibility.
+- **Bounded shortcuts** — a deliberate simplification with a known ceiling records
+  that ceiling, a measurable revisit trigger, and the likely upgrade path.
 
 ### Output format
 
@@ -142,6 +154,16 @@ These skills are deliberately narrow. They are **not**:
 - a prose-style pass (de-bureaucratese, removing AI tells).
 
 They cover the gap those leave: **the complexity of the solution itself.** Run them alongside whatever you already use for formatting and prose.
+
+## Measuring the effect honestly
+
+Do not claim universal savings from one successful example. Compare the same
+real task in isolated fresh contexts with a pinned model and repository revision.
+Measure the resulting artifact or `git diff`, tool/model calls, elapsed time and
+cost where available, while keeping correctness, safety and acceptance checks as
+hard gates. Include three task classes: an over-build trap, an already-irreducible
+task and a safety-sensitive task. Report zero gain where there is nothing to cut;
+never invent per-repository savings without an observed baseline.
 
 ---
 
