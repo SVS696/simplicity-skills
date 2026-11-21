@@ -1,188 +1,151 @@
 # Simplicity Skills for Claude Code
 
-> Two [Claude Code](https://docs.claude.com/en/docs/claude-code) skills that catch **over-engineering before you ship** — an automatic "simplicity pass" over whatever you're about to hand off, with a forced per-element decision.
+Use these two skills to review a solution before you hand it over. Each skill identifies parts that have no current use, makes a decision about each part, and shows a simpler solution.
 
-LLMs (and people) over-build: extra entities, statuses nobody asked for, premature patterns (CQRS, Event Sourcing, microservices), defensive code for inputs that can't happen, abstractions before the second use case, "future-proof" flexibility. In **specs** this slips past a quick read and gets torn apart in backlog grooming. In **code** it becomes complexity you have to maintain forever.
-
-These skills add the missing layer: a reviewer that flags complexity in the *substance of the solution* — not the formatting, not the prose — and rewrites it simpler **before a human sees the draft**.
-
----
-
-## What's inside
-
-| Skill | Scope |
+| Skill | When to use it |
 |---|---|
-| [`simplicity-spec`](skills/simplicity-spec/SKILL.md) | Specs / requirements, architecture decisions & ADRs, API design, DB schema changes, workflow / state machines, RBAC/ABAC, microservice boundaries, pattern choice (CQRS / Event Sourcing / event-driven / saga / rule engine), **and infrastructure / DevOps decisions** (Kubernetes vs docker-compose, cache / queue / replica / sharding, observability stack, CI/CD, extra services / environments). |
-| [`simplicity-code`](skills/simplicity-code/SKILL.md) | Writing, reviewing and refactoring code. |
+| [simplicity-spec](skills/simplicity-spec/SKILL.md) | Write or review requirements, an architecture decision, an API, a database schema, a workflow, or an access model. Use it to assess patterns, service boundaries, infrastructure, deployment, monitoring, and CI/CD. |
+| [simplicity-code](skills/simplicity-code/SKILL.md) | Write, review, or refactor code. |
 
-> **Language note.** The `SKILL.md` files are written in **Russian** (the author's working language). The method is language-agnostic — the smell catalogs below are translated, and changing the output language is a one-line edit. PRs with an English variant are welcome.
+The skill instructions are in Russian. The tables below explain the checks in English. You can request the result in another language. Contributions with an English version are welcome.
 
----
+## How to review a solution
 
-## The core rule
+Use the checks while you write and again before you deliver a nontrivial result. Start with the user action, its consumers, the result, and the project constraints. For each entity, state, asynchronous operation, access rule, dependency, or setting, find a current reason to keep it. A reason can be a user story, an acceptance criterion, a business rule, a regulatory requirement, or an existing architecture boundary.
 
-> Start with the **smallest** solution that satisfies the **explicit** requirements. Every extra entity, status, async flow, abstraction, permission dimension, dependency or config knob must map to a **current** requirement (a user story, acceptance criterion, business rule, regulatory constraint, or an existing architectural boundary). If it doesn't map — `REMOVE` or `DEFER`.
+1. Check whether the current behavior already meets the requirement. Then check the existing product or code. For code, check the standard library. For a design, check the component that owns the rule.
+2. Check built-in platform features and mechanisms the project already uses. Try a direct change in the existing component before you introduce a new mechanism.
+3. Use the tables below to examine each addition. A plan for future growth needs a specific current requirement before it can justify extra complexity.
+4. Choose a decision for each finding. Revise the solution and provide the applicable check. Show the result even when the review finds nothing to change.
 
-**"For the future / for flexibility / for scalability / just in case" is not a justification — it is itself a smell.**
+| Decision | Action |
+|---|---|
+| `KEEP` | Keep the element. Identify the current need. |
+| `SIMPLIFY` | Replace the element with a simpler option that meets the need. |
+| `REMOVE` | Remove an element that has no required use. |
+| `DEFER` | Record a valid future need outside the current change. For a design, record the current limit, a measurable condition for review, and the next mechanism. For code, include those details when the limit is known. |
+| `ASK` | Ask the author when the change would affect required behavior, or when the requirements conflict or allow different interpretations. |
 
----
+Preserve required behavior, validation at trust boundaries, protection against data loss, security, accessibility, and compliance. Keep the ability to test or monitor required behavior. Preserve a place to extend the solution when there are real variants or a later change would be expensive.
 
-## How it works
+Review the complexity of the solution. Use separate checks for document structure and style, including repeated facts and unnecessary boilerplate.
 
-- **Dual mechanism** — a *generation guardrail* (stops the drift while writing) **and** a *draft linter* (catches what slipped through anyway).
-- **Auto + always-show** — runs automatically before any non-trivial spec/code, and **always** prints the result: a `Simplicity pass` table when it finds something, or a single line when it's clean. The point is that over-engineering can't slip past a quick read.
-- **Full pass** — understand the real flow → climb the solution ladder → run
-  the smell list → check every complication against a current trigger →
-  **rewrite the solution already simplified** → leave the minimum applicable
-  verification (diagnosis without a rewrite just leaves you the bloated draft).
-- **Forced decision per element** — `KEEP` · `SIMPLIFY` · `REMOVE` · `DEFER` · `ASK`.
-- **Ordered solution ladder** — understand the full flow first, then stop at the
-  first level that works: do nothing → reuse the current product/codebase →
-  standard library → native platform → installed mechanism → direct local
-  solution → minimal new mechanism.
-- **Protected floor** — simplification never removes confirmed business meaning,
-  trust-boundary validation, data-loss protection, security, accessibility,
-  required compliance, or evidence-backed extensibility.
-- **Bounded shortcuts** — a deliberate simplification with a known ceiling records
-  that ceiling, a measurable revisit trigger, and the likely upgrade path.
-
-### Output format
-
-When something is found, you get a table you can scan in seconds:
+### Example review
 
 ```markdown
 ## Simplicity pass
 
-| Element | Smell | Why redundant / risk | Backing requirement | Decision | Use instead |
+| Element | Signal | Risk or cost | Requirement | Decision | Replacement |
 |---|---|---|---|---|---|
-| `workflow_states` table | Statuses without transitions | No story where the user drives states | none found | REMOVE | One status field on the main entity |
-| `OrderCalculated` event | Event for a local op | No external consumer; result needed now | calc on save | SIMPLIFY | Synchronous domain call |
-| `metadata` column | Catch-all model | Nobody specified who writes/reads keys | none found | DEFER | Explicit fields when a case appears |
+| Table `workflow_states` | No configurable transitions | Users have no task that requires a state catalog | None found for the table | REMOVE | A status field on the main entity |
+| Event `OrderCalculated` | Local operation | No external consumer uses the event. The caller needs the result immediately. | Calculate on save | SIMPLIFY | Call the calculation function directly |
+| Column `metadata` | Unspecified keys | No consumer uses the keys today | One channel is in use | DEFER | Define the fields when a second channel is confirmed |
 
-### Complexity delta
-Removed: −2 tables, −3 statuses, −1 async event.
-Kept (justified): audit log (traceability); department access dimension (current RBAC model).
-Before → after: a separate approval workflow engine → `approval_status` field + 3 explicit transitions.
+### Change summary
+
+Removed two tables, three statuses, and one asynchronous event.
+Kept the change log for audit and the department access check required by the role model.
+A single field, `approval_status`, and three explicit transitions cover the approval workflow.
+The current design covers one channel. When a second channel is confirmed, identify its required fields.
 ```
 
-When clean: `Simplicity pass: clean — every element maps to a requirement.`
+If every design element has a reason to stay, the English result is `Simplicity pass: clean — every element maps to a requirement.` Each skill gives the exact Russian wording for its result.
 
----
+## Requirements and architecture
 
-## Smell catalog — specs & architecture
-
-| Smell | Checkable signal |
+| Element | Check |
 |---|---|
-| Entity without an action | A DB/API entity with no user story / business operation behind it. |
-| Status without transitions | Statuses introduced, but no who/when/what-it-blocks. |
-| "Just-in-case" statuses | `draft / archived / cancelled / pending_review` with no described scenario. |
-| Catch-all model | `type / category / metadata / attributes / rules / config` where one concrete behavior is needed. |
-| Config without an admin | Configs/rules/matrices described, but no role/screen/process that manages them. |
-| RBAC/ABAC beyond the case | Dimensions/policies/inheritance/scope where 1–2 roles or an owner check suffice. |
-| CQRS without asymmetry | Commands split from reads with no separate read model / load / independent scaling. |
-| Event Sourcing instead of an audit log | Storing the full event history where a change log or current status is enough. |
-| Event/queue for a local op | A queue/event where the action is synchronous, in one bounded context, result needed now. |
-| Saga for 2–3 steps | Orchestration/choreography with no real distributed transaction or critical partial failures. |
-| Unrequested channels | webhook/import/export/notifications beyond the single required channel. |
-| Abstraction before the 2nd case | Interface/strategy/rule engine/templating before a second independent variant exists. |
-| "Future" DB columns | A column that no logic/API/UI/acceptance criterion uses. |
-| Lookup table instead of an enum | A lookup table + CRUD + permissions where the set is small, stable, business-unmanaged. |
-| Versioning without a need | versioning/snapshots/effective-dating with no as-of recompute / comparison / legal-record scenario. |
-| Resilience without a network | Idempotency/retries for operations that never cross a network/queue/external system. |
-| Redundant ownership dimensions | tenant/org fields duplicating a boundary the parent entity already sets. |
-| Exceptions richer than the basics | An edge-cases section longer than the main logic, full of unrequested scenarios. |
-| API mirrors the internals | The external contract leaks `commands/events/handlers/workflowId/policyId` instead of a plain resource/action. |
-| Local task → process change | Business process/roles/lifecycle change for what was a local data/calc/access change. |
+| Entity with no action | Which user story or business operation uses the database or API entity? |
+| Status with no transition | Who changes the status, when do they change it, and what does it block? |
+| Extra statuses | Which scenario requires `draft`, `archived`, `cancelled`, or `pending_review`? |
+| General-purpose model | Would an explicit field cover the one case served by `type`, `category`, `metadata`, `attributes`, `rules`, or `config`? |
+| Settings with no owner | Who manages the rules, settings, or matrices? Which screen or process do they use? |
+| Access controls | Would one or two roles or an owner check suffice? Which rule requires more attributes, policies, scopes, or inheritance? |
+| CQRS | Do reads and writes require different models, loads, or independent scaling? |
+| Event Sourcing | Does the business need to reconstruct state, or would a change log or the current status suffice? |
+| Event for a local operation | Does a synchronous operation in one domain need a queue if the caller needs the result immediately? |
+| Saga with two or three steps | Does a distributed transaction have critical failure cases after some steps complete? |
+| Extra channels | Which requirements call for webhooks, import, export, or notifications beyond the required channel? |
+| Abstraction for one case | Is there a second independent use for the interface, strategy, rule engine, or template? |
+| Unused database field | Which code, API, screen, or acceptance criterion uses the field? |
+| Lookup table | Would an enumeration cover a small, stable set of values that business users do not manage? |
+| Version history | Does a calculation, comparison, or legal record depend on the version at a given date? |
+| Retry and duplicate protection | Can the operation cross a network, queue, or external system? Can a retry or partial failure affect the result? |
+| Duplicate ownership fields | Does a tenant or organization field repeat a boundary that the parent entity sets? |
+| Extensive exception handling | If the exceptions take more space than the main case, which exceptions occur in the requested scenarios? |
+| Internal details in the API | Can a resource or action replace internal names such as `commands`, `events`, `handlers`, `workflowId`, or `policyId`? |
+| Wider process change | Does a local change to data, a calculation, or access require new roles, a new process, or another lifecycle? |
 
-## Smell catalog — infrastructure / DevOps
+## Infrastructure and deployment
 
-| Smell | Checkable signal |
+| Element | Check |
 |---|---|
-| Orchestrator without scale | Kubernetes / Helm / service-mesh where docker-compose / a couple of containers / systemd suffice. |
-| Service instead of a module | A new deploy unit / repo / container where a module in an existing service is enough. |
-| Cache without measured load | Redis / a cache layer with no proven read problem (profile, metric). |
-| Broker for a single task | Kafka / RabbitMQ / a dedicated stream where a sync call or an existing bus suffices. |
-| HA/replicas/sharding without requirements | Read replica, sharding, multi-AZ, failover with no load/availability (SLA) requirement. |
-| Multi-region / multi-cloud too early | Geo-distribution with no data-residency or latency requirement. |
-| Heavy observability on day one | Full Prometheus + Grafana + Loki + Tempo + alerting where logs + `/metrics` are enough. |
-| Over-built CI/CD | Multi-stage pipelines / build matrices / extra environments beyond real needs. |
-| IaC / autoscaling before the need | Terraform/Ansible wrapper modules around a single resource; HPA/autoscaling/limit tuning with no load profile. |
-| Self-hosting over what exists | A self-hosted component where a managed alternative or an existing project component already covers it. |
-| Extra environments / DBs | A new stand, environment, or DB instance with no use scenario; separate storage for a set that fits an existing schema. |
+| Orchestrator | Would Docker Compose, a few containers, or systemd suffice in place of Kubernetes, Helm, or a service mesh? |
+| New service | Can a module in the current service avoid a new deployment, repository, or container? |
+| Cache | Which measurement shows that reads need a cache such as Redis? |
+| Message broker | Can a direct call or the existing bus handle the task without Kafka, RabbitMQ, or a separate stream? |
+| Replicas, failover, or sharding | Which availability target or measured load requires read replicas, sharding, several zones, or failover? |
+| Multiple regions or clouds | Which data residency or latency requirement calls for this distribution? |
+| Monitoring tools | Would logs and `/metrics` suffice? Which need justifies Prometheus, Grafana, Loki, Tempo, and alerts? |
+| CI/CD | Which check or delivery step needs each pipeline stage, build matrix, or environment? |
+| Infrastructure as code and scaling | Does a single resource need a Terraform or Ansible wrapper? Which load profile requires autoscaling or a change to limits? |
+| Self-hosted component | Is a managed service or an existing project component sufficient? |
+| Extra environments or databases | Who uses the new environment or database instance? Could the data use the existing schema? |
 
-## Smell catalog — code
+## Code
 
-| Smell | Checkable signal |
+| Element | Check |
 |---|---|
-| 200 lines instead of 50 | The implementation is noticeably longer than the task needs; an obviously shorter form exists. |
-| Abstraction without a 2nd case | `interface`/Strategy/Factory/Protocol/generic with a single implementation. |
-| Premature generality | "Future" params/hooks/options never called from current code. |
-| Guarding the impossible | `try/except`/checks/branches for inputs that can't occur at current call sites. |
-| LLM for mechanics | A model/subprocess where `sed`/`grep`/`awk`/`jq` or a direct read+edit suffice. |
-| Command/flag instead of a recipe | A new CLI flag/command where one command or a short instruction does it. |
-| Framework for a call | LangChain/orchestrator/DI container where a direct API/function call suffices. |
-| Wrapper over stdlib | A custom helper over what the library already does in one line. |
-| Layers without a need | service→repository→mapper→DTO for single-table CRUD. |
-| Premature optimization | Cache/pool/batching/index with no measured problem (profile/bench). |
-| Config for one value | env/flag/setting where a constant is enough. |
-| Refactoring the neighbors | Touching working code/comments/formatting outside the task. |
-| Silent assumption | One of several ambiguous readings picked without surfacing it. |
-| Reinventing the wheel | Writing what already exists in the project or the standard library. |
-| Class hierarchy / inheritance | A class tree where a function or composition suffices. |
-| Type acrobatics | Heavy generics/types for a single concrete type. |
-| async without a reason | Queue/thread/async with no real concurrent IO or process boundary. |
-| Parsing non-existent cases | Handling input formats/variants the task never has. |
+| Long implementation | Can 50 lines replace 200 while preserving required behavior? |
+| Abstraction for one case | How many implementations use the interface, strategy, factory, protocol, or generic type? |
+| Unused options | Which calls use each parameter, hook, and option? |
+| Checks for impossible input | Can any current caller supply the input handled by this branch or exception handler? |
+| Language model for text replacement | Can `sed`, `grep`, `awk`, `jq`, or a direct edit do the work? |
+| New command or flag | Can instructions in the skill or a single existing command do the work? |
+| Framework for one call | Can the code call the API or function directly without LangChain, an orchestrator, or a dependency injection container? |
+| Standard library wrapper | Does the library already perform the operation in one call? |
+| Extra layers | Does single-table CRUD need a service, repository, mapper, and data transfer object? |
+| Optimization | Which benchmark or profile justifies the cache, pool, batch, or index? |
+| Setting for a fixed value | Could a constant replace the environment variable, flag, or setting? |
+| Unrelated refactoring | Does the task require changes to nearby code, comments, or formatting? |
+| Unstated assumption | Which interpretation of the request did the implementation use? |
+| Duplicate implementation | Does the project or standard library already provide the feature? |
+| Class hierarchy | Would a function or composition suffice? |
+| Complex types | How many concrete types use the generic implementation? |
+| Asynchronous code | Does a queue, thread, or asynchronous call serve concurrent I/O or a process boundary? |
+| Extra input formats | Which input formats does the task require? |
 
-## When complexity *is* justified
+## Reasons to keep a mechanism
 
-Each skill ships a "triggers" table — complexity is allowed only when its trigger is real and current, e.g.:
+The Russian skill files list the reasons for each mechanism. The following cases illustrate how to use them.
 
-- **New abstraction** → ≥ 2 real implementations *now* (the rule of three is even safer).
-- **Cache / optimization** → a *measured* performance problem, not a hypothesis.
-- **Event / queue / broker** → a real async consumer, peak buffering, or a service boundary.
-- **Orchestrator (k8s)** → genuinely many services to scale/self-heal, not 1–3 containers.
-- **CQRS / Event Sourcing** → distinct read/write models, or a legally meaningful history / as-of recompute.
-- **Replica / HA / sharding** → an availability (SLA) or volume/load requirement backed by numbers.
+- Introduce an abstraction when at least two real implementations need it. Where possible, wait for a third.
+- Use a cache or optimize code when a measurement shows a performance problem. A repeated, expensive calculation can also justify caching.
+- Use an event, queue, or broker for an asynchronous consumer, peak buffering, or exchange across service boundaries. Check whether the scenario can tolerate delayed updates.
+- Use an orchestrator when many services need scaling or automatic recovery. For one to three containers, first check a simpler option.
+- Consider CQRS for different read and write models, high read load, or complex projections. Consider Event Sourcing when the business needs legally significant history, state reconstruction, or recalculation of past results.
+- Use replicas, high availability, or sharding when a numerical availability, volume, or load requirement justifies them.
 
----
+## Measure the effect
 
-## Where it sits
+Run the same real task with and without the skill in separate fresh contexts. Use the same model and repository revision. Compare the resulting artifacts or diffs. Record tool calls, model calls, elapsed time, and cost where available.
 
-These skills are deliberately narrow. They are **not**:
-
-- a document-hygiene checker (no JSON/validation/logging boilerplate, Occam's razor on duplicated facts);
-- a prose-style pass (de-bureaucratese, removing AI tells).
-
-They cover the gap those leave: **the complexity of the solution itself.** Run them alongside whatever you already use for formatting and prose.
-
-## Measuring the effect honestly
-
-Do not claim universal savings from one successful example. Compare the same
-real task in isolated fresh contexts with a pinned model and repository revision.
-Measure the resulting artifact or `git diff`, tool/model calls, elapsed time and
-cost where available, while keeping correctness, safety and acceptance checks as
-hard gates. Include three task classes: an over-build trap, an already-irreducible
-task and a safety-sensitive task. Report zero gain where there is nothing to cut;
-never invent per-repository savings without an observed baseline.
-
----
+Include a task that invites extra complexity, a task that already has a minimal solution, and a task with safety requirements. Both results must pass the same correctness, safety, and acceptance checks. If there is nothing to remove, report zero improvement. Report savings for a repository only when you have measured a baseline.
 
 ## Install
 
-### Via the marketplace (recommended)
+### Marketplace
+
+Install both skills as the `simplicity` plugin.
 
 ```text
 /plugin marketplace add SVS696/svs-skills
 /plugin install simplicity@svs
 ```
 
-Installs both skills as the **`simplicity`** plugin — invoke as
-`/simplicity:simplicity-spec` and `/simplicity:simplicity-code`, or let them
-auto-trigger. Keep them current with `/plugin update simplicity@svs`.
+Claude Code selects the skills from their descriptions. To select a skill yourself, use `/simplicity:simplicity-spec` or `/simplicity:simplicity-code`. To update both skills, use `/plugin update simplicity@svs`.
 
-### Manually
-
-Clone and drop the skills into your Claude Code skills directory:
+### Manual installation
 
 ```bash
 git clone https://github.com/SVS696/simplicity-skills.git
@@ -190,18 +153,14 @@ cp -r simplicity-skills/skills/simplicity-spec ~/.claude/skills/
 cp -r simplicity-skills/skills/simplicity-code ~/.claude/skills/
 ```
 
-They auto-trigger from their `description` frontmatter (drafting/reviewing specs, architecture, infra, or code). You can also invoke them explicitly — e.g. "проверь на простоту" / "run a simplicity pass".
+Ask Claude Code to “run a simplicity pass” or «проверь на простоту». To make the check explicit in a project, add a reference to its specification rules, agent definition, or `CLAUDE.md`.
 
-To make them fire reliably inside a specific project, add a one-line pointer from that project's spec-writing rules or `CLAUDE.md` / agent definition.
+## Design and credits
 
----
+The skills apply the same checks during drafting and before handoff. Each finding needs a decision and a link to the current need. The reviewer provides the revised solution.
 
-## Design notes & credits
-
-- **Dual guardrail + linter, forced-decision table** — the key idea is that diagnosis alone is useless; the skill must rewrite the artifact and force a `KEEP/SIMPLIFY/REMOVE/DEFER/ASK` call per element, with a mandatory mapping to a current requirement.
-- Inspired by Andrej-Karpathy-style coding guidelines (simplicity first, surgical changes, think-before-coding), the *requirements smells* literature (NALABS; ISO/IEC/IEEE 29148), and the perennial YAGNI / KISS / "the simplest thing that could possibly work."
-- Designed and stress-tested with a second-opinion pass from another model.
+The approach draws on Andrej Karpathy’s guidelines for focused code changes, the requirements literature (NALABS and ISO/IEC/IEEE 29148), and the YAGNI and KISS principles. Another model provided a second opinion during design and testing. The skills run in [Claude Code](https://docs.claude.com/en/docs/claude-code).
 
 ## License
 
-[MIT](LICENSE).
+[MIT License](LICENSE).

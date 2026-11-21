@@ -1,8 +1,8 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "simplicity",
-  "version": "1.2.0",
-  "description": "Два прохода на простоту: simplicity-spec (ТЗ / архитектура / инфраструктура) и simplicity-code (код). Ловят переусложнение СУТИ решения до выдачи результата.",
+  "version": "1.2.1",
+  "description": "Проверяет постановки, архитектуру, инфраструктуру и код на простоту. Помогает убрать лишние элементы и сохранить требуемое поведение.",
   "author": {
     "name": "SVS696",
     "url": "https://github.com/SVS696"
